@@ -2,6 +2,16 @@
 
 A real-time collaborative document editor (Google Docs–style clone) built with **zero external APIs** — everything runs locally.
 
+![Collab Docs banner](screenshots/collab-docs-banner.png)
+
+## Screenshots
+
+![Document editor](screenshots/editor.png)
+
+![Dashboard](screenshots/dashboard.png)
+
+> Both screenshots above are captured from the live app.
+
 ## Features
 
 - Real-time collaborative editing (multiple people edit the same doc simultaneously)
