@@ -10,7 +10,12 @@ import type {
 
 export type { Comment, DocumentMeta, DocumentVersion, Reaction };
 
-const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
+const isServerless = process.env.VERCEL === "1" || process.env.VERCEL_ENV !== undefined;
+// Vercel's filesystem is read-only except /tmp. On serverless the data dir is
+// ephemeral (lost on cold start) — this only keeps requests from crashing.
+const DATA_DIR =
+  process.env.DATA_DIR ||
+  (isServerless ? "/tmp/data" : path.join(process.cwd(), "data"));
 const DOCS_DIR = path.join(DATA_DIR, "docs");
 const META_FILE = path.join(DATA_DIR, "meta.json");
 const VERSIONS_DIR = path.join(DATA_DIR, "versions");
