@@ -10,7 +10,7 @@ import type {
 
 export type { Comment, DocumentMeta, DocumentVersion, Reaction };
 
-const DATA_DIR = path.join(process.cwd(), "data");
+const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
 const DOCS_DIR = path.join(DATA_DIR, "docs");
 const META_FILE = path.join(DATA_DIR, "meta.json");
 const VERSIONS_DIR = path.join(DATA_DIR, "versions");

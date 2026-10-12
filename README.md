@@ -10,8 +10,13 @@ A real-time collaborative document editor (Google Docs–style clone) built with
 - Rich text toolbar: bold, italic, underline, strikethrough, highlight, text color,
   alignment, headings, lists, quotes, code blocks, links, tables, images
 - Emoji reactions on every document (syncs live to all open editors)
+- Comments with threaded replies (syncs live, persisted to metadata)
+- Room chat with server-buffered history
 - Version history — automatic saved versions; restore any past version (all connected users are reset to it)
 - Export — download as Markdown (.md), plain text (.txt), or print to PDF
+- Read-only share links (`?view=1`) — view without edit access
+- Image upload with client-side resize + image by URL
+- Favorite documents (star) on the dashboard with All / Favorites / Recent filters
 - Duplicate any document with one click
 - Dark mode toggle (persisted per browser)
 - Auto-save: docs persist to disk as files, reloaded when the server restarts
@@ -93,7 +98,8 @@ npm run lint
 - `GET /api/documents` — list documents
 - `POST /api/documents` — create a document
 - `GET /api/documents/[id]` — get a document
-- `PATCH /api/documents/[id]` — rename a document and/or update reactions (`{ title?, reactions? }`)
+- `PATCH /api/documents/[id]` — update any of: rename (`{ title }`), reactions (`{ reactions }`),
+  comments (`{ comments }`), favorite (`{ starred: true }`), open timestamp (`{ lastViewedAt }`)
 - `DELETE /api/documents/[id]` — delete a document
 - `POST /api/documents/[id]/duplicate` — create a copy (including content)
 - `GET /api/documents/[id]/versions` — list saved versions
@@ -103,3 +109,83 @@ npm run lint
 
 - Built with Next.js cacheComponents (`next.config.ts`), so pages use `Suspense` + `connection()` instead of `export const dynamic`.
 - Documents persist across server restarts (files in `data/`). Delete a document's entry + binary file to remove it permanently.
+- Not serverless-deployable (Vercel/Netlify): it needs a writable filesystem and a long-lived WebSocket server — run it on a VPS instead (see below).
+
+## Deploying on a VPS or server
+
+The app ships with a PM2 config (`ecosystem.config.cjs`) that runs both processes:
+Next.js web app on port **3000** and the WebSocket realtime server on port **1234**.
+
+### 1. Provision a server and install Node (Debian/Ubuntu)
+
+```bash
+sudo apt update && sudo apt install -y curl git
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt install -y nodejs
+```
+
+### 2. Clone and build
+
+```bash
+git clone https://github.com/khanzadigithubid/Collab-Docs.git
+cd Collab-Docs
+npm ci
+npm run build
+```
+
+### 3. Run with PM2
+
+```bash
+npm install -g pm2
+pm2 start ecosystem.config.cjs
+pm2 save
+pm2 startup    # follow the printed command to auto-start on boot
+```
+
+This starts:
+
+| Process | What | Port |
+| --- | --- | --- |
+| `collab-web` | Next.js (UI + REST API) | 3000 |
+| `collab-realtime` | WebSocket sync server | 1234 |
+
+### 4. Open ports
+
+```bash
+sudo ufw allow 3000/tcp
+sudo ufw allow 1234/tcp
+```
+
+### 5. (Recommended) Reverse proxy + TLS
+
+Point two records at the server (`collab.example.com` and `ws.collab.example.com`), then use
+Caddy for automatic HTTPS. Example `Caddyfile`:
+
+```
+collab.example.com {
+    reverse_proxy 127.0.0.1:3000
+}
+ws.collab.example.com {
+    reverse_proxy 127.0.0.1:1234
+}
+```
+
+Set the secure WebSocket URL used by the browser:
+
+```bash
+# in the shell that runs the build, or in ecosystem.config.cjs env
+NEXT_PUBLIC_WS_URL=wss://ws.collab.example.com
+```
+
+If you skip the `ws.` subdomain, the client auto-detects `wss://<your-host>:1234` — which also
+works, provided TLS is terminated on port 1234 itself.
+
+### 6. Data directory
+
+Documents are stored in `data/` inside the app folder (override with `DATA_DIR`). The folder is
+auto-created on first run; just make sure the PM2 user can write there.
+
+### Hosting options
+
+Any small VPS (Hetzner, DigitalOcean, Vultr, Contabo) or a Node-friendly PaaS that supports
+long-running processes (Railway, Render, Fly.io) works. Databases/queues not required.
